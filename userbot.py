@@ -3,17 +3,18 @@
 import os
 import asyncio
 from telethon import TelegramClient, events, functions, types
+from telethon.sessions import StringSession
 
-# Read from environment variables
+# -------------------------------
+# Load from environment variables
+# -------------------------------
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
-session_name = os.getenv("SESSION_NAME", "SESSION")  # default if not set
+session_str = os.getenv("SESSION")
+notify_channel_id = int(os.getenv("NOTIFY_CHANNEL_ID"))  # must be set in Sevalla env
 
-# Channel ID where notifications will be sent
-notify_channel_id = int(os.getenv("NOTIFY_CHANNEL_ID", "-1001234567890"))
-
-# Use normal file-based session
-client = TelegramClient(session_name, api_id, api_hash)
+# Use StringSession so no input() is needed
+client = TelegramClient(StringSession(session_str), api_id, api_hash)
 
 # Cache for known gift IDs
 known_gifts = set()
