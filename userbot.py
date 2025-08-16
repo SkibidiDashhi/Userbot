@@ -1,23 +1,25 @@
 # pip install telethon
 
+import os
 import asyncio
 from telethon import TelegramClient, events, functions, types
 
-# Your Telegram API credentials
-api_id = 29489874                # <- replace with your own
-api_hash = "db43f929f9eb42017a9b3c7e149036d9" # <- replace with your own
-session_name = "my_userbot"
+# Read from environment variables
+api_id = int(os.getenv("API_ID"))
+api_hash = os.getenv("API_HASH")
+session_name = os.getenv("SESSION_NAME", "SESSION")  # default if not set
 
-# Channel ID where notifications will be sent (replace with your channel/group ID)
-notify_channel_id = -1001929013406
+# Channel ID where notifications will be sent
+notify_channel_id = int(os.getenv("NOTIFY_CHANNEL_ID", "-1001234567890"))
 
+# Use normal file-based session
 client = TelegramClient(session_name, api_id, api_hash)
 
 # Cache for known gift IDs
 known_gifts = set()
 
 # -------------------------------
-# .data command — works for everyone
+# .data command
 # -------------------------------
 @client.on(events.NewMessage(pattern=r"^\.data$"))
 async def data_handler(event):
@@ -50,7 +52,7 @@ async def data_handler(event):
     await event.reply(details)
 
 # -------------------------------
-# .gifts command — shows available Telegram gifts purchasable with Stars
+# .gifts command
 # -------------------------------
 @client.on(events.NewMessage(pattern=r"^\.gifts$"))
 async def gifts_handler(event):
@@ -94,10 +96,7 @@ async def gift_watcher():
                         lines.append(f"• ID: `{g.id}` — {g.stars} ⭐{limited}")
                 msg = "\n".join(lines)
 
-                # Send notification to the channel
                 await client.send_message(notify_channel_id, msg)
-
-                # Update cache
                 known_gifts |= new_gifts
 
         except Exception as e:
@@ -109,7 +108,6 @@ async def gift_watcher():
 # Start the userbot
 # -------------------------------
 async def main():
-    # Load initial gifts into cache
     try:
         result = await client(functions.payments.GetStarGiftsRequest(hash=0))
         gifts = result.gifts
@@ -120,9 +118,8 @@ async def main():
     except Exception as e:
         print(f"[Init Error] {e}")
 
-    # Run background watcher
     client.loop.create_task(gift_watcher())
-    print("Userbot started...")
+    print("✅ Userbot started...")
     await client.run_until_disconnected()
 
 with client:
