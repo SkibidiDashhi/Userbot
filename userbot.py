@@ -1,17 +1,13 @@
 from telethon import TelegramClient, events
-from dotenv import load_dotenv
-import os
 
-# Load .env
-load_dotenv()
-
-API_ID = int(os.getenv('API_ID'))
-API_HASH = os.getenv('API_HASH')
-SESSION = os.getenv('SESSION')
+# Use the uploaded session file name (without .session)
+SESSION = 'my_session'  # <-- the name of your uploaded session file
+API_ID = 0              # <-- your uploaded API ID (0 if already in session)
+API_HASH = ''           # <-- your uploaded API Hash (empty if already in session)
 
 client = TelegramClient(SESSION, API_ID, API_HASH)
 
-# Premium emoji IDs (replace with your own)
+# Premium emoji IDs
 EMOJI_IDS = [
     5283228279988309088,
     5280598054901145762,
@@ -20,17 +16,11 @@ EMOJI_IDS = [
     5280659198055572187
 ]
 
-@client.on(events.NewMessage(pattern='.emoji'))
+@client.on(events.NewMessage(pattern='/sendemoji'))
 async def send_emoji(event):
-    """
-    Just send emojis in the same chat where the command is used.
-    """
     for emoji_id in EMOJI_IDS:
-        # Placeholder for testing
-        await event.reply("😀")  # Replace with actual premium emoji sending if available
-        # For real premium emojis:
-        # await client.send_file(event.chat_id, emoji_id)
-
+        # Placeholder
+        await event.reply("😀")  # Replace with actual premium emoji logic
     await event.reply("All emojis sent!")
 
 print("Userbot is running...")
