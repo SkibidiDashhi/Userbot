@@ -6,21 +6,27 @@ from telethon import TelegramClient, events, functions, types
 from telethon.sessions import StringSession
 
 # -------------------------------
-# Load from environment variables
+# Environment variables (robust)
 # -------------------------------
-api_id = int(os.getenv("API_ID"))
+api_id_str = os.getenv("API_ID")
 api_hash = os.getenv("API_HASH")
 session_str = os.getenv("SESSION")
-notify_channel_id = int(os.getenv("NOTIFY_CHANNEL_ID"))  # must be set in Sevalla env
+# Accept either -100... numeric ID or @username; don't cast to int to avoid TypeError
+notify_target = os.getenv("NOTIFY_CHANNEL_ID")  # optional
 
-# Use StringSession so no input() is needed
+if not api_id_str or not api_hash or not session_str:
+    raise RuntimeError("Missing required env vars: API_ID, API_HASH, SESSION")
+
+api_id = int(api_id_str)
+
+# Use StringSession so no interactive login is needed
 client = TelegramClient(StringSession(session_str), api_id, api_hash)
 
 # Cache for known gift IDs
 known_gifts = set()
 
 # -------------------------------
-# .data command
+# .data command — works for everyone
 # -------------------------------
 @client.on(events.NewMessage(pattern=r"^\.data$"))
 async def data_handler(event):
@@ -53,7 +59,7 @@ async def data_handler(event):
     await event.reply(details)
 
 # -------------------------------
-# .gifts command
+# .gifts command — shows available Telegram gifts (with emoji & title)
 # -------------------------------
 @client.on(events.NewMessage(pattern=r"^\.gifts$"))
 async def gifts_handler(event):
@@ -68,7 +74,11 @@ async def gifts_handler(event):
         lines = ["**🎁 Available Telegram Gifts:**"]
         for gift in available_gifts:
             limited = " - Limited" if getattr(gift, "limited", False) else ""
-            lines.append(f"• ID: `{gift.id}` — {gift.stars} ⭐{limited}")
+            emoji = getattr(gift, "emoji", "") or ""
+            title = getattr(gift, "title", "Gift")
+            stars = getattr(gift, "stars", "?")
+            gid = getattr(gift, "id", "?")
+            lines.append(f"• {emoji} **{title}** — `{gid}` — {stars} ⭐{limited}")
 
         await event.reply("\n".join(lines))
 
@@ -85,19 +95,27 @@ async def gift_watcher():
         try:
             result = await client(functions.payments.GetStarGiftsRequest(hash=0))
             gifts = result.gifts
-            current_ids = {g.id for g in gifts if not getattr(g, "sold_out", False)}
+            current_ids = {getattr(g, "id", None) for g in gifts if not getattr(g, "sold_out", False)}
+            current_ids.discard(None)
 
             # Detect new gifts
             new_gifts = current_ids - known_gifts
             if new_gifts:
                 lines = ["**🆕 New Telegram Gifts Released!**"]
                 for g in gifts:
-                    if g.id in new_gifts:
+                    if getattr(g, "id", None) in new_gifts:
                         limited = " - Limited" if getattr(g, "limited", False) else ""
-                        lines.append(f"• ID: `{g.id}` — {g.stars} ⭐{limited}")
+                        emoji = getattr(g, "emoji", "") or ""
+                        title = getattr(g, "title", "Gift")
+                        stars = getattr(g, "stars", "?")
+                        gid = getattr(g, "id", "?")
+                        lines.append(f"• {emoji} **{title}** — `{gid}` — {stars} ⭐{limited}")
                 msg = "\n".join(lines)
 
-                await client.send_message(notify_channel_id, msg)
+                # Only send if notify_target is set
+                if notify_target:
+                    await client.send_message(notify_target, msg)
+
                 known_gifts |= new_gifts
 
         except Exception as e:
@@ -114,7 +132,9 @@ async def main():
         gifts = result.gifts
         for g in gifts:
             if not getattr(g, "sold_out", False):
-                known_gifts.add(g.id)
+                gid = getattr(g, "id", None)
+                if gid is not None:
+                    known_gifts.add(gid)
         print(f"[Init] Loaded {len(known_gifts)} existing gifts")
     except Exception as e:
         print(f"[Init Error] {e}")
