@@ -5,37 +5,24 @@ import os
 from telethon import TelegramClient, events, functions, types
 from telethon.sessions import StringSession
 
-# ================================
-# Load credentials from environment
-# ================================
-api_id = int(os.environ.get("API_ID", "0"))
-api_hash = os.environ.get("API_HASH", "")
-session_string = os.environ.get("SESSION", "")
+# Load from environment variables (Sevalla dashboard)
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+SESSION = os.getenv("SESSION")  # StringSession
+NOTIFY_CHANNEL_ID = int(os.getenv("NOTIFY_CHANNEL_ID", "0"))  # optional
 
-# Channel/group ID where notifications will be sent
-# Example: -1001234567890  (for channels/supergroups)
-# Or "me" for Saved Messages
-notify_channel_id = os.environ.get("NOTIFY_CHANNEL_ID", "me")
+# Premium emoji IDs (provided by you)
+PREMIUM_EMOJIS = [
+    5283228279988309088, 5280598054901145762, 5280615440928758599,
+    5280947338821524402, 5280659198055572187, 5280774333243873175,
+    5283080528818360566, 5280769763398671636, 5280651583078556009,
+    5280922999241859582, 5451905784734574339
+]
 
-client = TelegramClient(StringSession(session_string), api_id, api_hash)
+client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
 # Cache for known gift IDs
 known_gifts = set()
-
-# Premium emoji IDs
-PREMIUM_EMOJIS = [
-    5283228279988309088,
-    5280598054901145762,
-    5280615440928758599,
-    5280947338821524402,
-    5280659198055572187,
-    5280774333243873175,
-    5283080528818360566,
-    5280769763398671636,
-    5280651583078556009,
-    5280922999241859582,
-    5451905784734574339,
-]
 
 # -------------------------------
 # .data command — works for everyone
@@ -90,7 +77,7 @@ async def gifts_handler(event):
             custom_emoji = f"<emoji id={emoji_id}>💎</emoji>"
 
             lines.append(
-                f"{custom_emoji} **{gift.title or 'Gift'}** — `{gift.id}` — {gift.stars} ⭐{limited}"
+                f"{custom_emoji} Gift ID: `{gift.id}` — {gift.stars} ⭐{limited}"
             )
 
         await event.reply("\n".join(lines), parse_mode="html")
@@ -112,7 +99,7 @@ async def gift_watcher():
 
             # Detect new gifts
             new_gifts = current_ids - known_gifts
-            if new_gifts:
+            if new_gifts and NOTIFY_CHANNEL_ID != 0:
                 lines = ["**🆕 New Telegram Gifts Released!**"]
                 for i, g in enumerate(gifts):
                     if g.id in new_gifts:
@@ -120,12 +107,14 @@ async def gift_watcher():
                         emoji_id = PREMIUM_EMOJIS[i % len(PREMIUM_EMOJIS)]
                         custom_emoji = f"<emoji id={emoji_id}>💎</emoji>"
                         lines.append(
-                            f"{custom_emoji} **{g.title or 'Gift'}** — `{g.id}` — {g.stars} ⭐{limited}"
+                            f"{custom_emoji} Gift ID: `{g.id}` — {g.stars} ⭐{limited}"
                         )
                 msg = "\n".join(lines)
 
-                await client.send_message(notify_channel_id, msg, parse_mode="html")
+                # Send notification to the channel
+                await client.send_message(NOTIFY_CHANNEL_ID, msg, parse_mode="html")
 
+                # Update cache
                 known_gifts |= new_gifts
 
         except Exception as e:
@@ -137,6 +126,7 @@ async def gift_watcher():
 # Start the userbot
 # -------------------------------
 async def main():
+    # Load initial gifts into cache
     try:
         result = await client(functions.payments.GetStarGiftsRequest(hash=0))
         gifts = result.gifts
@@ -147,6 +137,7 @@ async def main():
     except Exception as e:
         print(f"[Init Error] {e}")
 
+    # Run background watcher
     client.loop.create_task(gift_watcher())
     print("Userbot started...")
     await client.run_until_disconnected()
