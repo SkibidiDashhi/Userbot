@@ -1,29 +1,41 @@
 # pip install telethon
 
-import os
 import asyncio
+import os
 from telethon import TelegramClient, events, functions, types
 from telethon.sessions import StringSession
 
-# -------------------------------
-# Environment variables (robust)
-# -------------------------------
-api_id_str = os.getenv("API_ID")
-api_hash = os.getenv("API_HASH")
-session_str = os.getenv("SESSION")
-# Accept either -100... numeric ID or @username; don't cast to int to avoid TypeError
-notify_target = os.getenv("NOTIFY_CHANNEL_ID")  # optional
+# ================================
+# Load credentials from environment
+# ================================
+api_id = int(os.environ.get("API_ID", "0"))
+api_hash = os.environ.get("API_HASH", "")
+session_string = os.environ.get("SESSION", "")
 
-if not api_id_str or not api_hash or not session_str:
-    raise RuntimeError("Missing required env vars: API_ID, API_HASH, SESSION")
+# Channel/group ID where notifications will be sent
+# Example: -1001234567890  (for channels/supergroups)
+# Or "me" for Saved Messages
+notify_channel_id = os.environ.get("NOTIFY_CHANNEL_ID", "me")
 
-api_id = int(api_id_str)
-
-# Use StringSession so no interactive login is needed
-client = TelegramClient(StringSession(session_str), api_id, api_hash)
+client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
 # Cache for known gift IDs
 known_gifts = set()
+
+# Premium emoji IDs
+PREMIUM_EMOJIS = [
+    5283228279988309088,
+    5280598054901145762,
+    5280615440928758599,
+    5280947338821524402,
+    5280659198055572187,
+    5280774333243873175,
+    5283080528818360566,
+    5280769763398671636,
+    5280651583078556009,
+    5280922999241859582,
+    5451905784734574339,
+]
 
 # -------------------------------
 # .data command — works for everyone
@@ -59,7 +71,7 @@ async def data_handler(event):
     await event.reply(details)
 
 # -------------------------------
-# .gifts command — shows available Telegram gifts (with emoji & title)
+# .gifts command — shows available Telegram gifts purchasable with Stars
 # -------------------------------
 @client.on(events.NewMessage(pattern=r"^\.gifts$"))
 async def gifts_handler(event):
@@ -72,15 +84,16 @@ async def gifts_handler(event):
             return await event.reply("No gifts are currently available for purchase.")
 
         lines = ["**🎁 Available Telegram Gifts:**"]
-        for gift in available_gifts:
+        for i, gift in enumerate(available_gifts):
             limited = " - Limited" if getattr(gift, "limited", False) else ""
-            emoji = getattr(gift, "emoji", "") or ""
-            title = getattr(gift, "title", "Gift")
-            stars = getattr(gift, "stars", "?")
-            gid = getattr(gift, "id", "?")
-            lines.append(f"• {emoji} **{title}** — `{gid}` — {stars} ⭐{limited}")
+            emoji_id = PREMIUM_EMOJIS[i % len(PREMIUM_EMOJIS)]
+            custom_emoji = f"<emoji id={emoji_id}>💎</emoji>"
 
-        await event.reply("\n".join(lines))
+            lines.append(
+                f"{custom_emoji} **{gift.title or 'Gift'}** — `{gift.id}` — {gift.stars} ⭐{limited}"
+            )
+
+        await event.reply("\n".join(lines), parse_mode="html")
 
     except Exception as e:
         await event.reply(f"⚠️ Error fetching gifts: `{e}`")
@@ -95,26 +108,23 @@ async def gift_watcher():
         try:
             result = await client(functions.payments.GetStarGiftsRequest(hash=0))
             gifts = result.gifts
-            current_ids = {getattr(g, "id", None) for g in gifts if not getattr(g, "sold_out", False)}
-            current_ids.discard(None)
+            current_ids = {g.id for g in gifts if not getattr(g, "sold_out", False)}
 
             # Detect new gifts
             new_gifts = current_ids - known_gifts
             if new_gifts:
                 lines = ["**🆕 New Telegram Gifts Released!**"]
-                for g in gifts:
-                    if getattr(g, "id", None) in new_gifts:
+                for i, g in enumerate(gifts):
+                    if g.id in new_gifts:
                         limited = " - Limited" if getattr(g, "limited", False) else ""
-                        emoji = getattr(g, "emoji", "") or ""
-                        title = getattr(g, "title", "Gift")
-                        stars = getattr(g, "stars", "?")
-                        gid = getattr(g, "id", "?")
-                        lines.append(f"• {emoji} **{title}** — `{gid}` — {stars} ⭐{limited}")
+                        emoji_id = PREMIUM_EMOJIS[i % len(PREMIUM_EMOJIS)]
+                        custom_emoji = f"<emoji id={emoji_id}>💎</emoji>"
+                        lines.append(
+                            f"{custom_emoji} **{g.title or 'Gift'}** — `{g.id}` — {g.stars} ⭐{limited}"
+                        )
                 msg = "\n".join(lines)
 
-                # Only send if notify_target is set
-                if notify_target:
-                    await client.send_message(notify_target, msg)
+                await client.send_message(notify_channel_id, msg, parse_mode="html")
 
                 known_gifts |= new_gifts
 
@@ -132,15 +142,13 @@ async def main():
         gifts = result.gifts
         for g in gifts:
             if not getattr(g, "sold_out", False):
-                gid = getattr(g, "id", None)
-                if gid is not None:
-                    known_gifts.add(gid)
+                known_gifts.add(g.id)
         print(f"[Init] Loaded {len(known_gifts)} existing gifts")
     except Exception as e:
         print(f"[Init Error] {e}")
 
     client.loop.create_task(gift_watcher())
-    print("✅ Userbot started...")
+    print("Userbot started...")
     await client.run_until_disconnected()
 
 with client:
