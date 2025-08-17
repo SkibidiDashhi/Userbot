@@ -16,7 +16,7 @@ client = TelegramClient(SESSION, API_ID, API_HASH)
 async def main():
     print("Userbot is running...")
 
-    @client.on(events.NewMessage(pattern='/sendemoji'))
+    @client.on(events.NewMessage(pattern='.emoji'))
     async def send_emoji(event):
         # Example premium emoji IDs
         emoji_ids = [
