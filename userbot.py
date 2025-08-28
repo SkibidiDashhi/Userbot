@@ -103,7 +103,7 @@ async def gift_watcher():
         except Exception as e:
             print(f"[Watcher Error] {e}")
 
-        await asyncio.sleep(600)  # check every 10 minutes
+        await asyncio.sleep(3)  # check every 3 seconds
 
 # -------------------------------
 # Start the userbot
