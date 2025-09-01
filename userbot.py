@@ -106,6 +106,46 @@ async def gift_watcher():
         await asyncio.sleep(3)  # check every 3 seconds
 
 # -------------------------------
+# Command: /send {emoji_id}
+# -------------------------------
+@client.on(events.NewMessage(pattern=r'^/send (\d+)$'))
+async def send_premium_emoji(event):
+    try:
+        emoji_id = int(event.pattern_match.group(1))
+        text = "❤️"
+        await client(functions.messages.SendMessageRequest(
+            peer=event.chat_id,
+            message=text,
+            entities=[
+                types.MessageEntityCustomEmoji(offset=0, length=1, document_id=emoji_id)
+            ]
+        ))
+    except Exception as e:
+        await event.reply(f"❌ Error: {e}")
+
+# -------------------------------
+# Command: /send2 {emoji_id}
+# -------------------------------
+@client.on(events.NewMessage(pattern=r'^/send2 (\d+)$'))
+async def send_formatted_message(event):
+    try:
+        emoji_id = int(event.pattern_match.group(1))
+        text = "Test\n\n•❤️ @telenewsmyanmar • ❤️ @gifts_myanmar"
+
+        entities = [
+            types.MessageEntityCustomEmoji(offset=text.index('❤️'), length=1, document_id=emoji_id),
+            types.MessageEntityCustomEmoji(offset=text.rindex('❤️'), length=1, document_id=emoji_id)
+        ]
+
+        await client(functions.messages.SendMessageRequest(
+            peer=event.chat_id,
+            message=text,
+            entities=entities
+        ))
+    except Exception as e:
+        await event.reply(f"❌ Error: {e}")
+
+# -------------------------------
 # Start the userbot
 # -------------------------------
 async def main():
