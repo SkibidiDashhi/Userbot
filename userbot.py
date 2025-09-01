@@ -193,7 +193,7 @@ async def gift_upgrade_tracker():
         except Exception as e:
             print(f"[Upgrade Tracker Error] {e}")
 
-        await asyncio.sleep(3600)  # every 1 hour
+        await asyncio.sleep(3)  # every 3 seconds
 
 # -------------------------------
 # Telegram URL helper
