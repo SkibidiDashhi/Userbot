@@ -90,7 +90,7 @@ async def gift_watcher():
             # Detect new gifts
             new_gifts = current_ids - known_gifts
             if new_gifts:
-                lines = ["**🆕 New Telegram Gifts Released!**"]
+                lines = ["**🆕 Gifts အသစ်ထွက်ပြီဟေ့**"]
                 for g in gifts:
                     if g.id in new_gifts:
                         limited = " - Limited" if getattr(g, "limited", False) else ""
