@@ -90,7 +90,6 @@ async def gift_watcher():
             # Detect new gifts
             new_gifts = current_ids - known_gifts
             if new_gifts:
-                lines = ["🆕 Gifts အသစ်ထွက်ပြီဟေ့\n"]
                 for g in gifts:
                     if g.id in new_gifts:
                         stars = getattr(g, "stars", "N/A")
@@ -98,15 +97,21 @@ async def gift_watcher():
                         limit_text = f"{limit}" if limit else "Unlimited"
                         premium_only = "Yes" if getattr(g, "premium_only", False) else "No"
 
-                        lines.append(
+                        msg = (
+                            "🆕 Gifts အသစ်ထွက်ပြီဟေ့\n\n"
                             f"ID : {g.id}\n"
                             f"Price : {stars} ⭐️\n"
                             f"Limit : {limit_text}\n"
-                            f"တောသား၀ယ်ရ/မရ : {premium_only}\n"
+                            f"တောသား၀ယ်ရ/မရ : {premium_only}"
                         )
+                        await client.send_message(notify_channel_id, msg)
 
-                msg = "\n".join(lines)
-                await client.send_message(notify_channel_id, msg)
+                        # Low-supply alert
+                        if limit is not None and limit < 1000:
+                            alert_msg = f"⚠️ Low Supply Alert! Gift ID {g.id} has only {limit} left!"
+                            await client.send_message(notify_channel_id, alert_msg)
+
+                # Update known gifts after sending all
                 known_gifts |= new_gifts
 
         except Exception as e:
@@ -143,3 +148,4 @@ async def main():
 
 with client:
     client.loop.run_until_complete(main())
+
