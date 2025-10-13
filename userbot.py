@@ -15,25 +15,9 @@ notify_channel_id = int(os.getenv("NOTIFY_CHANNEL_ID"))
 client = TelegramClient(StringSession(session_str), api_id, api_hash)
 
 # -------------------------------
-# Cache for known gifts & gift tracking
+# Cache for known gifts
 # -------------------------------
 known_gifts = set()
-# Example gifts data structure
-gifts_tracking = {
-    "Tonnel": {
-        "emoji_id": 6010231763480088256,
-        "url": "https://t.me/Tonnel_Network_bot/gifts?startapp=ref_5496411145",
-        "last_price": 200,
-        "current_price": 250
-    },
-    "Portals": {
-        "emoji_id": 5300744024204798740,
-        "url": "https://t.me/portals/market?startapp=1gajmy",
-        "last_price": 500,
-        "current_price": 550
-    }
-}
-STAR_EMOJI_ID = 5472092560522511055  # Example Telegram star emoji ID
 
 # -------------------------------
 # .data command
@@ -106,11 +90,21 @@ async def gift_watcher():
             # Detect new gifts
             new_gifts = current_ids - known_gifts
             if new_gifts:
-                lines = ["**🆕 Gifts အသစ်ထွက်ပြီဟေ့**"]
+                lines = ["🆕 Gifts အသစ်ထွက်ပြီဟေ့\n"]
                 for g in gifts:
                     if g.id in new_gifts:
-                        limited = " - Limited" if getattr(g, "limited", False) else ""
-                        lines.append(f"• ID: `{g.id}` — {g.stars} ⭐{limited}")
+                        stars = getattr(g, "stars", "N/A")
+                        limit = getattr(g, "limit", None)
+                        limit_text = f"{limit}" if limit else "Unlimited"
+                        premium_only = "Yes" if getattr(g, "premium_only", False) else "No"
+
+                        lines.append(
+                            f"ID : {g.id}\n"
+                            f"Price : {stars} ⭐️\n"
+                            f"Limit : {limit_text}\n"
+                            f"တောသား၀ယ်ရ/မရ : {premium_only}\n"
+                        )
+
                 msg = "\n".join(lines)
                 await client.send_message(notify_channel_id, msg)
                 known_gifts |= new_gifts
@@ -119,82 +113,6 @@ async def gift_watcher():
             print(f"[Watcher Error] {e}")
 
         await asyncio.sleep(3)  # check every 3 seconds
-
-# -------------------------------
-# Command: /send {emoji_id} -> send premium emoji
-# -------------------------------
-@client.on(events.NewMessage(pattern=r'^/send (\d+)$'))
-async def send_premium_emoji(event):
-    try:
-        emoji_id = int(event.pattern_match.group(1))
-        text = "❤️"
-        await client(functions.messages.SendMessageRequest(
-            peer=event.chat_id,
-            message=text,
-            entities=[
-                types.MessageEntityCustomEmoji(offset=0, length=1, document_id=emoji_id)
-            ]
-        ))
-    except Exception as e:
-        await event.reply(f"❌ Error: {e}")
-
-# -------------------------------
-# Command: /send2 {emoji_id} -> formatted message with mentions
-# -------------------------------
-@client.on(events.NewMessage(pattern=r'^/send2 (\d+)$'))
-async def send_formatted_message(event):
-    try:
-        emoji_id = int(event.pattern_match.group(1))
-        text = "Test\n\n•❤️ @telenewsmyanmar • ❤️ @gifts_myanmar"
-
-        entities = [
-            types.MessageEntityCustomEmoji(offset=text.index('❤️'), length=1, document_id=emoji_id),
-            types.MessageEntityCustomEmoji(offset=text.rindex('❤️'), length=1, document_id=emoji_id)
-        ]
-
-        await client(functions.messages.SendMessageRequest(
-            peer=event.chat_id,
-            message=text,
-            entities=entities
-        ))
-    except Exception as e:
-        await event.reply(f"❌ Error: {e}")
-
-# -------------------------------
-# Gift upgrade tracker — hourly
-# -------------------------------
-async def gift_upgrade_tracker():
-    while True:
-        try:
-            for gift_name, gift in gifts_tracking.items():
-                old_price = gift["last_price"]
-                new_price = gift["current_price"]
-                emoji_id = gift["emoji_id"]
-
-                if new_price > old_price:
-                    # Price changed
-                    msg = f"ဈေးပြောင်းပြီဟေ့\n❤️ ({old_price}⭐️) → ({new_price}⭐️)"
-                    entities = [
-                        types.MessageEntityCustomEmoji(offset=0, length=1, document_id=emoji_id),
-                        types.MessageEntityCustomEmoji(offset=msg.index('⭐️'), length=1, document_id=STAR_EMOJI_ID),
-                        types.MessageEntityCustomEmoji(offset=msg.rindex('⭐️'), length=1, document_id=STAR_EMOJI_ID)
-                    ]
-                else:
-                    # Upgrade available
-                    msg = f"Upgrade လို့ရပြီဟေ့\n❤️ of {gift_name} can upgrade"
-                    entities = [
-                        types.MessageEntityCustomEmoji(offset=0, length=1, document_id=emoji_id)
-                    ]
-
-                await client.send_message(notify_channel_id, msg, entities=entities)
-
-                # Update last price
-                gifts_tracking[gift_name]["last_price"] = new_price
-
-        except Exception as e:
-            print(f"[Upgrade Tracker Error] {e}")
-
-        await asyncio.sleep(3)  # every 3 seconds
 
 # -------------------------------
 # Telegram URL helper
@@ -217,9 +135,8 @@ async def main():
     except Exception as e:
         print(f"[Init Error] {e}")
 
-    # Start background tasks
+    # Start background task
     client.loop.create_task(gift_watcher())
-    client.loop.create_task(gift_upgrade_tracker())
 
     print("✅ Userbot started...")
     await client.run_until_disconnected()
