@@ -50,7 +50,7 @@ async def data_handler(event):
         f"📂 **Type:** {chat_type}"
     )
 
-    await event.reply(details)
+    await event.edit(details)
 
 # -------------------------------
 # .gifts command
@@ -58,22 +58,24 @@ async def data_handler(event):
 @client.on(events.NewMessage(pattern=r"^\.gifts$"))
 async def gifts_handler(event):
     try:
+        await event.edit("Fetching gifts... ⏳")
+
         result = await client(functions.payments.GetStarGiftsRequest(hash=0))
         gifts = result.gifts
         available_gifts = [g for g in gifts if not getattr(g, "sold_out", False)]
 
         if not available_gifts:
-            return await event.reply("No gifts are currently available for purchase.")
+            return await event.edit("No gifts are currently available for purchase.")
 
         lines = ["**🎁 Available Telegram Gifts:**"]
         for gift in available_gifts:
             limited = " - Limited" if getattr(gift, "limited", False) else ""
             lines.append(f"• ID: `{gift.id}` — {gift.stars} ⭐{limited}")
 
-        await event.reply("\n".join(lines))
+        await event.edit("\n".join(lines))
 
     except Exception as e:
-        await event.reply(f"⚠️ Error fetching gifts: `{e}`")
+        await event.edit(f"⚠️ Error fetching gifts: `{e}`")
 
 # -------------------------------
 # Background gift watcher — detect new gifts
@@ -97,19 +99,21 @@ async def gift_watcher():
                         limit_text = f"{limit}" if limit else "Unlimited"
                         premium_only = "Yes" if getattr(g, "premium_only", False) else "No"
 
+                        # Low supply alert (inside message)
+                        alert_line = ""
+                        if limit is not None and limit < 1000:
+                            alert_line = f"\n⚠️ Low Supply Alert! Only {limit} left!"
+
                         msg = (
                             "🆕 Gifts အသစ်ထွက်ပြီဟေ့\n\n"
                             f"ID : {g.id}\n"
                             f"Price : {stars} ⭐️\n"
                             f"Limit : {limit_text}\n"
-                            f"တောသား၀ယ်ရ/မရ : {premium_only}"
+                            f"Premium Only : {premium_only}"
+                            f"{alert_line}"
                         )
-                        await client.send_message(notify_channel_id, msg)
 
-                        # Low-supply alert
-                        if limit is not None and limit < 1000:
-                            alert_msg = f"⚠️ Low Supply Alert! Gift ID {g.id} has only {limit} left!"
-                            await client.send_message(notify_channel_id, alert_msg)
+                        await client.send_message(notify_channel_id, msg)
 
                 # Update known gifts after sending all
                 known_gifts |= new_gifts
@@ -118,12 +122,6 @@ async def gift_watcher():
             print(f"[Watcher Error] {e}")
 
         await asyncio.sleep(3)  # check every 3 seconds
-
-# -------------------------------
-# Telegram URL helper
-# -------------------------------
-def create_telegram_url(emoji_id, url):
-    return f"[{emoji_id}]({url})"  # Send as markdown
 
 # -------------------------------
 # Start the userbot
@@ -148,4 +146,3 @@ async def main():
 
 with client:
     client.loop.run_until_complete(main())
-
