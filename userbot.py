@@ -105,7 +105,7 @@ async def gift_watcher():
                             alert_line = f"\n⚠️ Low Supply Alert! Only {limit} left!"
 
                         msg = (
-                            "🆕 Gifts အသစ်ထွက်ပြီဟေ့\n\n"
+                            "🆕 Gifts အသစ်ထွက်ပြီဗျို့\n\n"
                             f"ID : {g.id}\n"
                             f"Price : {stars} ⭐️\n"
                             f"Limit : {limit_text}\n"
