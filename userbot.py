@@ -1,4 +1,4 @@
-//developer - @qunixivll
+#developer - @qunixivll
 import os
 import asyncio
 from telethon import TelegramClient, events, functions, types
